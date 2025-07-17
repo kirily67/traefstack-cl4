@@ -1,2 +1,2 @@
-# Traefik-Prometheus-Grapana-Dashy-Authelia-stack
+# Traefik-Prometheus-Grafana-Dashy-Authelia-stack
  
