@@ -1,0 +1,34 @@
+# Redirect kh.octopod.eu to dash.octopod.eu
+http:
+  middlewares:
+    kh-redirect:
+      redirectRegex:
+#        regex: "^https?://kh\\.octopod\\.eu/(.*)"
+        regex: ".*"
+        replacement: "https://dash.octopod.eu" #$${2}"
+        permanent: true
+
+  routers:
+    kh-redirect-https:                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |:
+      rule: "Host(`kh.octopod.eu`)"
+      entryPoints:
+        - "websecure"
+      service: "dummy-service"
+      middlewares:
+        - "kh-redirect"
+      tls:
+        certResolver: "letsencrypt"  # или твоя cert resolver
+
+    kh-redirect-http:
+      rule: "Host(`kh.octopod.eu`)"
+      entryPoints:
+        - "web"
+      service: "dummy-service"
+      middlewares:
+        - "kh-redirect"
+
+  services:
+    dummy-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:9999"  # dummy URL

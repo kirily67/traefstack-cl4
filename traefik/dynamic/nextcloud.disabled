@@ -1,0 +1,18 @@
+# Nextcloud External Service (example)
+http:
+  routers:
+    nextcloud:
+      rule: "Host(`nc.octopod.eu`)"
+      entryPoints:
+        - websecure
+      service: nextcloud
+      middlewares:
+        - authelia@docker
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    nextcloud:
+      loadBalancer:
+        servers:
+          - url: "http://192.168.1.101:80"

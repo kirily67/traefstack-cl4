@@ -1,0 +1,17 @@
+# Временно - bypass auth за тестване
+http:
+  routers:
+    homeassistant:
+      rule: "Host(`ha.octopod.eu`)"
+      entryPoints:
+        - websecure
+      service: homeassistant
+      # Премахнете middlewares за тестване
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: "http://10.11.12.8:8123"

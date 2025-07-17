@@ -1,0 +1,36 @@
+pageInfo:
+  title: My Dashboard
+  description: Personal Dashboard
+  navLinks:
+    - title: GitHub
+      path: https://github.com
+
+appConfig:
+  theme: dark
+  layout: auto
+  iconSize: medium
+  language: en
+
+sections:
+  - name: Infrastructure
+    icon: fas fa-server
+    items:
+      - title: Traefik
+        description: Reverse Proxy Dashboard
+        icon: hl-traefik
+        url: https://traefik.yourdomain.com
+        target: newtab
+      - title: Authelia
+        description: Authentication Portal
+        icon: hl-authelia
+        url: https://auth.yourdomain.com
+        target: newtab
+
+  - name: Applications
+    icon: fas fa-rocket
+    items:
+      - title: Example App
+        description: Your applications here
+        icon: fas fa-globe
+        url: https://app.yourdomain.com
+        target: newtab

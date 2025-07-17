@@ -1,0 +1,28 @@
+# Debug version with auth headers
+http:
+  routers:
+    homeassistant:
+      rule: "Host(`ha.octopod.eu`)"
+      entryPoints:
+        - websecure
+      service: homeassistant
+      middlewares:
+        - homeassistant-auth-headers
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: "http://10.11.12.8:8123"
+
+  middlewares:
+    homeassistant-auth-headers:
+      headers:
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+          X-Forwarded-Host: "ha.octopod.eu"
+          X-Forwarded-User: "kirily"  # Temporary hardcode
+          X-Forwarded-For: ""
+          Remote-User: "kirily"       # Temporary hardcode

@@ -1,0 +1,18 @@
+users:
+  oihadmin:
+    displayname: "OIH Admin"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$/vLJ+jIWOpFmhDKURgHhdw$o9IvVXmGbf8gRAxRT2GIJkXb1Yx3F6g45ZKm34/6Axo"
+    email: it@octopod.eu
+    groups:
+      - admins
+      - dev
+
+  kirily:
+    displayname: "Kiril Yovtchevsky"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$/vLJ+jIWOpFmhDKURgHhdw$o9IvVXmGbf8gRAxRT2GIJkXb1Yx3F6g45ZKm34/6Axo"
+    email: kirily@gmail.com
+    groups:
+      - admins
+      - dev
+
+#docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password "Br0ther2021"

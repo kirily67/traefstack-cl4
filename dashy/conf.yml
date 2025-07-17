@@ -1,0 +1,89 @@
+pageInfo:
+  title: Octopod Dashboard
+  description: Personal Infrastructure Dashboard
+  navLinks:
+    - title: GitHub
+      path: https://github.com/kirily67
+appConfig:
+  theme: glass
+  layout: auto
+  iconSize: medium
+  language: en
+  startingView: default
+  defaultOpeningMethod: newtab
+  statusCheck: true
+  statusCheckInterval: 30
+sections:
+  - name: Infrastructure
+    icon: fas fa-server
+    items:
+      - title: Traefik Dashboard
+        description: Reverse Proxy & Load Balancer
+        icon: hl-traefik
+        url: https://traf.octopod.eu
+        statusCheck: true
+        target: newtab
+        id: 0_1505_traefikdashboard
+      - title: Authelia
+        description: Authentication & Authorization
+        icon: hl-authelia
+        url: https://auth.octopod.eu
+        target: newtab
+        statusCheck: true
+        id: 1_1505_authelia
+      - title: HomeAssistant
+        icon: 'icon: generative'
+        url: https://ha.octopod.eu/
+        target: newtab
+        id: 2_1505_homeassistant
+  - name: Monitoring
+    icon: fas fa-chart-line
+    items:
+      - title: System Monitor
+        description: Server resource monitoring
+        icon: fas fa-tachometer-alt
+        url: https://zbx.ocrtopod.eu
+        target: newtab
+        id: 0_1062_systemmonitor
+  - name: Applications
+    icon: fas fa-rocket
+    items:
+      - title: Example App
+        description: Your applications will appear here
+        icon: fas fa-globe
+        url: https://app.octopod.eu
+        target: newtab
+        id: 0_1255_exampleapp
+  - name: Development
+    icon: fas fa-code
+    items:
+      - title: Git Repository
+        description: Source code management
+        icon: fab fa-git-alt
+        url: https://git.octopod.eu
+        target: newtab
+        id: 0_1155_gitrepository
+  - name: Media
+    icon: fas fa-photo-video
+    items:
+      - title: Media Server
+        description: Movies, TV Shows, Music
+        icon: fas fa-play-circle
+        url: https://media.octopod.eu
+        target: newtab
+        id: 0_480_mediaserver
+  - name: Utilities
+    icon: fas fa-tools
+    items:
+      - title: File Manager
+        description: Web-based file management
+        icon: fas fa-folder-open
+        url: https://files.yourdomain.com
+        target: newtab
+        id: 0_956_filemanager
+      - title: Password Manager
+        description: Secure password storage
+        icon: fas fa-key
+        url: https://passwords.yourdomain.com
+        target: newtab
+        id: 1_956_passwordmanager

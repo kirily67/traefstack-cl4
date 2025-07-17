@@ -1,0 +1,186 @@
+# Authelia Configuration
+theme: dark
+#jwt_secret: 2e2932e058f5d8cb145fb2c54d2457dfcce0bf78a8ed3c565fc0368b21e32da7
+jwt_secret: ${AUTHELIA_JWT_SECRET}
+default_redirection_url: https://dash.octopod.eu
+
+server:
+  host: 0.0.0.0
+  port: 9091
+
+log:
+  level: info
+
+authentication_backend:
+  file:
+    path: /config/users_database.yml
+    password:
+      algorithm: argon2id
+      iterations: 1
+      salt_length: 16
+      parallelism: 8
+      memory: 128
+
+access_control:
+  default_policy: deny
+  rules:
+    - domain: "dash.octopod.eu"
+      policy: one_factor
+    - domain: "traf.octopod.eu"
+      policy: one_factor
+    - domain: "auth.octopod.eu"
+      policy: bypass
+
+    # Home Assistant main UI
+    - domain: ha.octopod.eu
+      policy: two_factor
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+    
+    # Home Assistant API endpoints (bypass auth)
+    - domain: ha.octopod.eu
+      resources:
+        - "^/api/.*"
+        - "^/auth/.*"
+        - "^/local/.*"
+        - "^/hacsfiles/.*"
+        - "^/frontend_latest/.*"
+        - "^/static/.*"
+        - "^/service_worker.js"
+        - "^/manifest.json"
+        - "^/favicon.ico"
+        - "^/lovelace/.*"
+      policy: bypass
+
+session:
+  name: authelia_session
+#  secret: ae9c6334f1b282c9920b283aa3988447e1e45119b9cf8024fdb0611b425b37c8
+  secret: ${AUTHELIA_SESSION_SECRET}
+  expiration: 3600
+  inactivity: 300
+  domain: octopod.eu
+  redis:
+    host: redis
+    port: 6379
+
+regulation:
+  max_retries: 3
+  find_time: 120
+  ban_time: 300
+
+storage:
+#  encryption_key: de675758b1587f8e80faf45443da6e96e4bbe1dff06c9f00b5507936321e6de3
+  encryption_key: ${AUTHELIA_STORAGE_ENCRYPTION_KEY}
+#  local:
+#    path: /config/db.sqlite3
+  local:
+    path: /config/data/db.sqlite3
+
+notifier:
+#  filesystem:
+#    filename: /config/data/notification.txt
+  smtp:
+    username: it@octopod.eu
+    password: "R@kiaF0r@ll"
+    host: mail.octopod.eu
+    port: 465
+    sender: it@octopod.eu
+    subject: "[Authelia] {title}"
+
+
+# OpenID Connect Provider Configuration
+identity_providers:
+  oidc:
+    hmac_secret: ${AUTHELIA_OIDC_HMAC_SECRET}
+    issuer_private_key: |
+      -----BEGIN PRIVATE KEY-----
+      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
+      MuGYPtUiVKC7ViC2QEd75bRLh902BQ==
+      -----END PRIVATE KEY-----
+
+
+    access_token_lifespan: 1h
+    authorize_code_lifespan: 1m
+    id_token_lifespan: 1h
+    refresh_token_lifespan: 90m
+    
+    clients:
+      - id: homeassistant
+        description: Home Assistant
+#        secret: ${AUTHELIA_OIDC_CLIENT_SECRET_HASH}
+        secret: '$pbkdf2-sha512$310000$39xa9d5sx.zyXYxn8rip3g$rzzPDlHwTnIQ31vhdi8f4UeitQY4xLW2MkaWqGPysICuGHujBPFK3YTrfLtDin2.pVp/siUkw66xb8.tHvYWxQ'
+        public: false
+        require_pkce: true
+        pkce_challenge_method: 'S256'
+        consent_mode: implicit
+        pre_configured_consent_duration: 1M
+#        token_endpoint_auth_method: client_secret_post
+        authorization_policy: two_factor
+        redirect_uris:
+          - https://ha.octopod.eu/auth/oidc/callback
+          - http://10.11.12.8:8123/auth/oidc/callback
+##external/callback
+        scopes:
+          - 'openid'
+          - 'profile'
+##          - email
+          - 'groups'
+        grant_types:
+          - authorization_code
+        userinfo_signed_response_alg: 'none'
+##        userinfo_signing_algorithm: none
+#        userinfo_signed_responce_alg: 'RS256'
+##        userinfo_signed_response_alg: 'RS256'
+        token_endpoint_auth_method: client_secret_post

@@ -1,0 +1,180 @@
+networks:
+  traefik:
+    external: true
+  internal:
+    driver: bridge
+
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --api.insecure=false
+      - --providers.docker=true
+      - --providers.docker.network=traefik
+      - --providers.docker.exposedbydefault=false
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.metrics.address=:8082
+      - "--metrics.prometheus=true"
+      - "--metrics.prometheus.entryPoint=metrics"
+      - "--metrics.prometheus.buckets=0.100000,0.300000,1.200000,5.000000"
+      - "--metrics.prometheus.addEntryPointsLabels=true"
+      - "--metrics.prometheus.addServicesLabels=true"
+#      - "--tracing.jaeger.samplingServerURL=http://jaeger:5778/sampling"
+#      - "--tracing.jaeger.propagation=jaeger"
+#      - "--tracing.jaeger.traceContextHeaderName=uber-trace-id"
+#      - "--tracing.jaeger=true"
+#      - "--tracing.jaeger.sampling.probability=1.0" # or adjust as needed
+#      - "--tracing.jaeger.localAgentHostPort=jaeger:6831" # Replace with your Jaeger agent's address 
+      - --certificatesresolvers.letsencrypt.acme.email=it@octopod.eu
+      - --certificatesresolvers.letsencrypt.acme.storage=/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --log.level=INFO
+      - --accesslog=true
+      #added 
+#      - --experimental.plugins.traefik-themepark.modulename=github.com/packruler/traefik-themepark
+#      - --experimental.plugins.traefik-themepark.version=v1.4.2
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8081"
+      - "8082:8082"  # prometheus metrics
+    volumes:
+      - /run/user/1000/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/acme.json:/acme.json
+    networks:
+      - traefik
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.traefik.rule=Host(`traf.octopod.eu`)
+      - traefik.http.routers.traefik.entrypoints=websecure
+      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik.service=api@internal
+      - traefik.http.routers.traefik.middlewares=authelia@docker
+      - traefik.http.services.traefik.loadbalancer.server.port=8080
+      - "traefik.http.routers.metrics.rule=Host(`metrics.example.com`)"
+      - "traefik.http.routers.metrics.entrypoints=web"
+      - "traefik.http.services.metrics.loadbalancer.server.port=8082"
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+      - "14250:14250"
+    environment:
+      - METRICS_EXPORTER=prometheus
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    networks:
+      - traefik
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - ./prometheus/data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.size=256MB'
+    ports:
+      - 9090:9090
+    labels:
+      - "traefik.http.routers.prometheus.rule=Host(`prom.octopod.eu`)"
+      - "traefik.http.routers.prometheus.service=prometheus"
+      - "traefik.http.routers.prometheus.middlewares=traefik-auth"
+      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
+    networks:
+      - traefik
+      - internal
+    restart: unless-stopped
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_PATHS_PLUGINS=${GF_PATHS_PLUGINS}
+    #   - GF_INSTALL_PLUGINS=${GF_INSTALL_PLUGINS}
+    ports:
+      - "3000:3000"
+    volumes:
+    #   - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      - ./grafana/plugins:/var/lib/grafana/plugins
+    networks:
+      - traefik
+      - internal
+    labels:
+      - "traefik.http.routers.grafana.rule=Host(`grafana.local`)"
+      - "traefik.http.middlewares.grafana.redirectscheme.port=3000"
+      - "traefik.http.routers.grafana.entrypoints=web"
+
+
+  authelia:
+    image: authelia/authelia:latest
+    container_name: authelia
+    volumes:
+      - ./authelia/configuration.yml:/config/configuration.yml:ro
+      - ./authelia/users_database.yml:/config/users_database.yml:ro
+      - authelia-data:/config/data
+    networks:
+      - traefik
+      - internal
+    environment:
+      - AUTHELIA_JWT_SECRET=${AUTHELIA_JWT_SECRET}
+      - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET}
+      - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_KEY}
+    restart: unless-stopped
+    depends_on:
+      - redis
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.authelia.rule=Host(`auth.octopod.eu`)
+      - traefik.http.routers.authelia.entrypoints=websecure
+      - traefik.http.routers.authelia.tls.certresolver=letsencrypt
+      - traefik.http.services.authelia.loadbalancer.server.port=9091
+      - traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://auth.octopod.eu/
+      - traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true
+      - traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    networks:
+      - internal
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  dashy:
+    image: lissy93/dashy:latest
+    container_name: dashy
+    volumes:
+      - ./dashy/conf.yml:/app/user-data/conf.yml
+#      - ./dashy:/app/public/item-icons:ro
+#      - ./dashy/conf.yml:/conf.yml:rw
+    networks:
+      - traefik
+    restart: unless-stopped
+#    environment:
+      # Принуждаваме Dashy да използва нашия конфигурационен файл
+#      - DASHY_CONFIG_PATH=/app/public/conf.yml
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashy.rule=Host(`dash.octopod.eu`)
+      - traefik.http.routers.dashy.entrypoints=websecure
+      - traefik.http.routers.dashy.tls.certresolver=letsencrypt
+      - traefik.http.routers.dashy.middlewares=authelia@docker
+      - traefik.http.services.dashy.loadbalancer.server.port=8080
+
+volumes:
+  redis-data:
+  authelia-data:
