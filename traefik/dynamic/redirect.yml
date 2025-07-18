@@ -1,0 +1,48 @@
+http:
+#  routers:
+#    nextcloud:
+#      rule: Host(`nextcloud.example.com`)
+#      entryPoints: [websecure]
+#      service: nextcloud
+
+#    remote:
+#      rule: Host(`vw.om.octopod.eu`)
+#      entryPoints: [websecure]
+#      service: remote
+
+#  services:
+#    nextcloud:
+#      loadBalancer:
+#        servers:
+#          - url: https://nc.example.com
+#        passHostHeader: true
+
+#    remote:
+#      loadBalancer:
+#        servers:
+#          - url: http://192.168.98.6:2443
+
+
+#    dashy:                             # ← новият блок
+#      loadBalancer:
+#        servers:
+#          - url: http://dashy:80
+
+  middlewares:
+    redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+    sso:
+      forwardAuth:
+        address: https://auth.octopod.eu/api/verify
+        trustForwardHeader: true
+        authResponseHeaders:
+          - Remote-User
+          - Remote-Groups
+
+    traefik-auth:
+      basicauth:
+        users:
+          - "users=kiril:$apr1$71d5rclv$ogrjxkslZC8uHlLoDfYq51"

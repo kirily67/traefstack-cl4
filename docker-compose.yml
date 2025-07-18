@@ -11,46 +11,30 @@ services:
     command:
       - --api.dashboard=true
       - --api.insecure=false
-      - --providers.docker=true
-      - --providers.docker.network=traefik
-      - --providers.docker.exposedbydefault=false
-      - --providers.file.directory=/etc/traefik/dynamic
-      - --providers.file.watch=true
-      - --entrypoints.web.address=:80
-      - --entrypoints.websecure.address=:443
-      - --entrypoints.metrics.address=:8082
-      - "--metrics.prometheus=true"
-      - "--metrics.prometheus.entryPoint=metrics"
-      - "--metrics.prometheus.buckets=0.100000,0.300000,1.200000,5.000000"
-      - "--metrics.prometheus.addEntryPointsLabels=true"
-      - "--metrics.prometheus.addServicesLabels=true"
-#      - "--tracing.jaeger.samplingServerURL=http://jaeger:5778/sampling"
-#      - "--tracing.jaeger.propagation=jaeger"
-#      - "--tracing.jaeger.traceContextHeaderName=uber-trace-id"
-#      - "--tracing.jaeger=true"
-#      - "--tracing.jaeger.sampling.probability=1.0" # or adjust as needed
-#      - "--tracing.jaeger.localAgentHostPort=jaeger:6831" # Replace with your Jaeger agent's address 
-      - --certificatesresolvers.letsencrypt.acme.email=it@octopod.eu
-      - --certificatesresolvers.letsencrypt.acme.storage=/acme.json
-      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
-      - --log.level=INFO
-      - --accesslog=true
-      #added 
-#      - --experimental.plugins.traefik-themepark.modulename=github.com/packruler/traefik-themepark
-#      - --experimental.plugins.traefik-themepark.version=v1.4.2
     ports:
       - "80:80"
       - "443:443"
-      - "8081:8081"
       - "8082:8082"  # prometheus metrics
     volumes:
       - /run/user/1000/docker.sock:/var/run/docker.sock:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
+      - ./traefik/traefik.yml:/traefik.yml:ro
       - ./traefik/acme.json:/acme.json
     networks:
       - traefik
     restart: unless-stopped
     labels:
+#      - traefik.http.routers.http-catch.rule=HostRegexp(`{any:.+}`)
+#      - traefik.http.routers.http-catch.entrypoints=web
+#      - traefik.http.routers.http-catch.middlewares=redirect@file
+
+#      - traefik.http.routers.traefik.rule=Host(`kh.octopod.eu`)
+#      - traefik.http.routers.traefik.entrypoints=websecure
+#      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
+#      - traefik.http.routers.traefik.service=api@internal
+#      - traefik.http.routers.traefik.middlewares=authelia@file
+
+
       - traefik.enable=true
       - traefik.http.routers.traefik.rule=Host(`traf.octopod.eu`)
       - traefik.http.routers.traefik.entrypoints=websecure
@@ -58,27 +42,14 @@ services:
       - traefik.http.routers.traefik.service=api@internal
       - traefik.http.routers.traefik.middlewares=authelia@docker
       - traefik.http.services.traefik.loadbalancer.server.port=8080
-      - "traefik.http.routers.metrics.rule=Host(`metrics.example.com`)"
-      - "traefik.http.routers.metrics.entrypoints=web"
-      - "traefik.http.services.metrics.loadbalancer.server.port=8082"
 
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"
-      - "14268:14268"
-      - "14250:14250"
-    environment:
-      - METRICS_EXPORTER=prometheus
-      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
-    networks:
-      - traefik
 
   prometheus:
     image: prom/prometheus:latest
+    container_name: traef-prometheus
     volumes:
       - ./prometheus/:/etc/prometheus/
-      - ./prometheus/data:/prometheus
+      - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -101,6 +72,7 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    container_name: traef-grafana
     environment:
       - GF_PATHS_PLUGINS=${GF_PATHS_PLUGINS}
     #   - GF_INSTALL_PLUGINS=${GF_INSTALL_PLUGINS}
@@ -109,11 +81,12 @@ services:
     volumes:
     #   - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/plugins:/var/lib/grafana/plugins
+      - grafana-data:/var/lib/grafana
     networks:
       - traefik
       - internal
     labels:
-      - "traefik.http.routers.grafana.rule=Host(`grafana.local`)"
+      - "traefik.http.routers.grafana.rule=Host(`graf.octopod.eu`)"
       - "traefik.http.middlewares.grafana.redirectscheme.port=3000"
       - "traefik.http.routers.grafana.entrypoints=web"
 
@@ -178,3 +151,5 @@ services:
 volumes:
   redis-data:
   authelia-data:
+  prometheus-data:
+  grafana-data:
