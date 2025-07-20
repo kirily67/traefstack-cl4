@@ -202,20 +202,22 @@ services:
     image: ghcr.io/goauthentik/server:2024.6.1
     container_name: authentik-server
 #    command: ["manage.py", "server"]
+    command: server
     environment:
       AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
       AUTHENTIK_POSTGRESQL__HOST: authentik-db
       AUTHENTIK_POSTGRESQL__USER: authentik
       AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
       AUTHENTIK_POSTGRESQL__DATABASE: authentik
-#      AUTHENTIK_EMAIL__HOST: "${AUTHENTIK_EMAIL__HOST}"
-#      AUTHENTIK_EMAIL__PORT: "${AUTHENTIK_EMAIL__PORT}"
-#      AUTHENTIK_EMAIL__USERNAME: "${AUTHENTIK_EMAIL__USERNAME}"
-#      AUTHENTIK_EMAIL__PASSWORD: "${AUTHENTIK_EMAIL__PASSWORD}"
-#      AUTHENTIK_EMAIL__FROM: "${AUTHENTIK_EMAIL__FROM}"
-      #AUTHENTIK_EMAIL__USE_TLS=true
+      # Email settings
+      AUTHENTIK_EMAIL__HOST: "${AUTHENTIK_EMAIL__HOST}"
+      AUTHENTIK_EMAIL__PORT: "${AUTHENTIK_EMAIL__PORT}"
+      AUTHENTIK_EMAIL__USERNAME: "${AUTHENTIK_EMAIL__USERNAME}"
+      AUTHENTIK_EMAIL__PASSWORD: "${AUTHENTIK_EMAIL__PASSWORD}"
+      AUTHENTIK_EMAIL__FROM: "${AUTHENTIK_EMAIL__FROM}"
+      AUTHENTIK_EMAIL__USE_TLS: true
       # Use SSL
-#      #AUTHENTIK_EMAIL__USE_SSL=false
+      #AUTHENTIK_EMAIL__USE_SSL: false
       AUTHENTIK_EMAIL__TIMEOUT: 10
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_REDIS__PORT: 6379
@@ -224,6 +226,8 @@ services:
       - redis
     volumes:
       - ./authentik-data:/data
+      - ./authentik/certs:/certs
+      - ./authentik/custom-templates:/templates
     ports:
       - "9100:9000"
     networks:
@@ -236,6 +240,7 @@ services:
       - traefik.http.routers.authentik.entrypoints=websecure
       - traefik.http.routers.authentik.tls.certresolver=letsencrypt
       - traefik.http.services.authentik.loadbalancer.server.port=9000
+
 
 # =======================================
 # Authentik DB - Postgres
@@ -252,6 +257,51 @@ services:
     networks:
       - internal
     restart: unless-stopped
+
+# =======================================
+# Authentik Worker
+# =======================================
+  authentik-worker:
+    image: ghcr.io/goauthentik/server:2024.6.1
+    container_name: authentik-worker
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
+      AUTHENTIK_POSTGRESQL__DATABASE: authentik
+      # Email settings
+      AUTHENTIK_EMAIL__HOST: "${AUTHENTIK_EMAIL__HOST}"
+      AUTHENTIK_EMAIL__PORT: "${AUTHENTIK_EMAIL__PORT}"
+      AUTHENTIK_EMAIL__USERNAME: "${AUTHENTIK_EMAIL__USERNAME}"
+      AUTHENTIK_EMAIL__PASSWORD: "${AUTHENTIK_EMAIL__PASSWORD}"
+      AUTHENTIK_EMAIL__FROM: "${AUTHENTIK_EMAIL__FROM}"
+      AUTHENTIK_EMAIL__USE_TLS: true
+      # Use SSL
+      #AUTHENTIK_EMAIL__USE_SSL: false
+      AUTHENTIK_EMAIL__TIMEOUT: 10
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PORT: 6379
+
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
+      # Configure the default password for the akadmin user. Only read on the first startup. Can be used for any flow executor.
+      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
+      # Create a token for the default akadmin user. Only read on the first startup. The string you specify for this variable 
+      # is the token key you can use to authenticate yourself to the API.
+      # echo "FENRUS_OIDC_CLIENT_SECRET=$(openssl rand -base64 60 | tr -d '\n')" >> .env
+      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_EMAIL__FROM}"
+    volumes:
+      - ./authentik/media:/media
+      - ./authentik/certs:/certs
+      - ./authentik/custom-templates:/templates
+    depends_on:
+      - authentik-db
+      - redis
+    networks:
+      - traefik
+      - internal
+
 
 # =======================================
 # Ping healthcheck service (optional, can be a simple busybox container that pings 10.10.30.1)
