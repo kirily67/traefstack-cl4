@@ -221,6 +221,19 @@ services:
       AUTHENTIK_EMAIL__TIMEOUT: 10
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_REDIS__PORT: 6379
+
+
+#      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
+      # Configure the default password for the akadmin user. Only read on the first startup. Can be used for any flow executor.
+#      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
+      # Create a token for the default akadmin user. Only read on the first startup. The string you specify for this variable
+      # is the token key you can use to authenticate yourself to the API.
+      # echo "FENRUS_OIDC_CLIENT_SECRET=$(openssl rand -base64 60 | tr -d '\n')" >> .env
+#      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_EMAIL__FROM}"
+      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_BOOTSTRAP_ADMIN_PASSWORD}"
+      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
+      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_BOOTSTRAP_EMAIL}"
+
     depends_on:
       - authentik-db
       - redis
@@ -284,13 +297,13 @@ services:
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_REDIS__PORT: 6379
 
-      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
+#      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
       # Configure the default password for the akadmin user. Only read on the first startup. Can be used for any flow executor.
-      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
+#      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
       # Create a token for the default akadmin user. Only read on the first startup. The string you specify for this variable 
       # is the token key you can use to authenticate yourself to the API.
       # echo "FENRUS_OIDC_CLIENT_SECRET=$(openssl rand -base64 60 | tr -d '\n')" >> .env
-      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_EMAIL__FROM}"
+#      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_EMAIL__FROM}"
     volumes:
       - ./authentik/media:/media
       - ./authentik/certs:/certs
