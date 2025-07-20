@@ -28,7 +28,7 @@ access_control:
       policy: one_factor
     - domain: "traf.octopod.eu"
       policy: one_factor
-    - domain: "auth.octopod.eu"
+    - domain: "authl.octopod.eu"
       policy: bypass
 
     # Home Assistant main UI
@@ -184,3 +184,4 @@ identity_providers:
 #        userinfo_signed_responce_alg: 'RS256'
 ##        userinfo_signed_response_alg: 'RS256'
         token_endpoint_auth_method: client_secret_post
+

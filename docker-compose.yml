@@ -1,3 +1,6 @@
+# =======================================
+# Networks
+# =======================================
 networks:
   traefik:
     external: true
@@ -5,6 +8,9 @@ networks:
     driver: bridge
 
 services:
+# =======================================
+# Traefik
+# =======================================
   traefik:
     image: traefik:v3.0
     container_name: traefik
@@ -43,7 +49,9 @@ services:
       - traefik.http.routers.traefik.middlewares=authelia@docker
       - traefik.http.services.traefik.loadbalancer.server.port=8080
 
-
+# =======================================
+# Pometheus
+# =======================================
   prometheus:
     image: prom/prometheus:latest
     container_name: traef-prometheus
@@ -69,7 +77,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
+# =======================================
+# Grafana
+# =======================================
   grafana:
     image: grafana/grafana:latest
     container_name: traef-grafana
@@ -91,6 +101,9 @@ services:
       - "traefik.http.routers.grafana.entrypoints=web"
 
 
+# =======================================
+# Authelia
+# =======================================
   authelia:
     image: authelia/authelia:latest
     container_name: authelia
@@ -110,14 +123,17 @@ services:
       - redis
     labels:
       - traefik.enable=true
-      - traefik.http.routers.authelia.rule=Host(`auth.octopod.eu`)
+      - traefik.http.routers.authelia.rule=Host(`authl.octopod.eu`)
       - traefik.http.routers.authelia.entrypoints=websecure
       - traefik.http.routers.authelia.tls.certresolver=letsencrypt
       - traefik.http.services.authelia.loadbalancer.server.port=9091
-      - traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://auth.octopod.eu/
+      - traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://authl.octopod.eu/
       - traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true
       - traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email
 
+# =======================================
+# Redis
+# =======================================
   redis:
     image: redis:alpine
     container_name: redis
@@ -127,6 +143,9 @@ services:
       - redis-data:/data
     restart: unless-stopped
 
+# =======================================
+# Dashy
+# =======================================
   dashy:
     image: lissy93/dashy:latest
     container_name: dashy
@@ -148,6 +167,106 @@ services:
       - traefik.http.routers.dashy.middlewares=authelia@docker
       - traefik.http.services.dashy.loadbalancer.server.port=8080
 
+
+# =======================================
+# Fenrus Dashboard
+# =======================================
+  fenrus:
+    image: revenz/fenrus:latest
+    container_name: fenrus
+    volumes:
+      - ./fenrus-data:/app/data
+    environment:
+      - FENRUS_OIDC_AUTH_URL=https://auth.octopod.eu/application/o/authorize/
+      - FENRUS_OIDC_TOKEN_URL=https://auth.octopod.eu/application/o/token/
+      - FENRUS_OIDC_CLIENT_ID=fenrus
+      - FENRUS_OIDC_CLIENT_SECRET=${FENRUS_OIDC_CLIENT_SECRET}
+      - FENRUS_OIDC_SCOPE=openid profile email
+      - FENRUS_OIDC_LOGOUT_URL=https://auth.octopod.eu/application/o/logout/
+    networks:
+      - traefik
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.fenrus.rule=Host(`fenrus.octopod.eu`)
+      - traefik.http.routers.fenrus.entrypoints=websecure
+      - traefik.http.routers.fenrus.tls.certresolver=letsencrypt
+#      - traefik.http.routers.fenrus.middlewares=authentik@docker
+      - traefik.http.services.fenrus.loadbalancer.server.port=3000
+      - traefik.http.routers.fenrus.middlewares=authentik-forwardauth@file
+
+# =======================================
+# Authentik SSO
+# =======================================
+  authentik-server:
+    image: ghcr.io/goauthentik/server:2024.6.1
+    container_name: authentik-server
+#    command: ["manage.py", "server"]
+    environment:
+      AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
+      AUTHENTIK_POSTGRESQL__HOST: authentik-db
+      AUTHENTIK_POSTGRESQL__USER: authentik
+      AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
+      AUTHENTIK_POSTGRESQL__DATABASE: authentik
+#      AUTHENTIK_EMAIL__HOST: "${AUTHENTIK_EMAIL__HOST}"
+#      AUTHENTIK_EMAIL__PORT: "${AUTHENTIK_EMAIL__PORT}"
+#      AUTHENTIK_EMAIL__USERNAME: "${AUTHENTIK_EMAIL__USERNAME}"
+#      AUTHENTIK_EMAIL__PASSWORD: "${AUTHENTIK_EMAIL__PASSWORD}"
+#      AUTHENTIK_EMAIL__FROM: "${AUTHENTIK_EMAIL__FROM}"
+      #AUTHENTIK_EMAIL__USE_TLS=true
+      # Use SSL
+#      #AUTHENTIK_EMAIL__USE_SSL=false
+      AUTHENTIK_EMAIL__TIMEOUT: 10
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_REDIS__PORT: 6379
+    depends_on:
+      - authentik-db
+      - redis
+    volumes:
+      - ./authentik-data:/data
+    ports:
+      - "9100:9000"
+    networks:
+      - traefik
+      - internal
+    restart: unless-stopped
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.authentik.rule=Host(`auth.octopod.eu`)
+      - traefik.http.routers.authentik.entrypoints=websecure
+      - traefik.http.routers.authentik.tls.certresolver=letsencrypt
+      - traefik.http.services.authentik.loadbalancer.server.port=9000
+
+# =======================================
+# Authentik DB - Postgres
+# =======================================
+  authentik-db:
+    image: postgres:15
+    container_name: authentik-db
+    environment:
+      POSTGRES_USER: authentik
+      POSTGRES_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
+      POSTGRES_DB: authentik
+    volumes:
+      - ./authentik-db:/var/lib/postgresql/data
+    networks:
+      - internal
+    restart: unless-stopped
+
+# =======================================
+# Ping healthcheck service (optional, can be a simple busybox container that pings 10.10.30.1)
+# =======================================
+  pingcheck:
+    image: busybox
+    container_name: pingcheck
+    command: /bin/sh -c "while true; do ping -c1 10.10.30.1 >/dev/null 2>&1 && echo ok || echo nok; sleep 30; done"
+    networks:
+      - internal
+    restart: unless-stopped
+
+# =======================================
+# Volumes
+# =======================================
 volumes:
   redis-data:
   authelia-data:
