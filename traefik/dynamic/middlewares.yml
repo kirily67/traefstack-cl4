@@ -1,0 +1,16 @@
+http:
+  middlewares:
+    # Името на нашия мидълуер. Ще го използваме навсякъде.
+    authentik-forwardauth:
+      forwardAuth:
+        # Адресът на Authentik в Docker мрежата.
+        address: http://authentik-server:9000/outpost.goauthentik.io/auth/traefik
+        # Казваме на Traefik да се довери на хедърите, които идват от Authentik.
+        trustForwardHeader: true
+        # Хедърите с информация за потребителя, които Authentik ще върне към услугата.
+        authResponseHeaders:
+          - X-authentik-username
+          - X-authentik-groups
+          - X-authentik-email
+          - X-authentik-name
+          - X-authentik-uid

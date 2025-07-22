@@ -1,10 +1,4 @@
 http:
-  middlewares:
-    https-redirect:
-      redirectScheme:
-        scheme: https
-        permanent: true
-
   routers:
     portainer:
       entrypoints:
@@ -13,6 +7,8 @@ http:
       tls: 
         certResolver: letsencrypt
       service: portainer
+      middlewares:
+        - authentik-forwardauth 
 
     portainer-http:
       entrypoints:
@@ -21,6 +17,8 @@ http:
       middlewares:
         - https-redirect
       service: portainer
+      middlewares:
+        - authentik-forwardauth
 
 
 
