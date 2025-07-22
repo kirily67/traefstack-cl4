@@ -1,0 +1,11 @@
+*.save
+*.pem
+*.swp
+.env
+authentik-db/*
+fenrus-data/*
+traefik/acme.json
+traefik/dynamic/*.disabled
+grafana/
+grafana/data
+grafana/plugins

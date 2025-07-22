@@ -1,0 +1,36 @@
+http:
+  middlewares:
+    https-redirect:
+      redirectScheme:
+        scheme: https
+        permanent: true
+
+  routers:
+    portainer:
+      entrypoints:
+        - "websecure"
+      rule: "Host(`port.octopod.eu`)"
+      tls: 
+        certResolver: letsencrypt
+      service: portainer
+
+    portainer-http:
+      entrypoints:
+        - "web"
+      rule: "Host(`port.octopod.eu`)"
+      middlewares:
+        - https-redirect
+      service: portainer
+
+
+
+  services:
+    portainer:
+      loadBalancer:
+        servers:
+          - url: "https://10.11.12.2:9443"
+        passHostHeader: true
+        healtCheck:
+          path: /
+          interval: 30s
+          timeout: 10s
