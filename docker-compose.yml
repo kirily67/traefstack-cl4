@@ -1,104 +1,112 @@
-# =======================================
-# Networks
-# =======================================
-networks:
-  traefik:
-    external: true
-  internal:
-    driver: bridge
-
 services:
+  traefik:
 # =======================================
 # Traefik
 # =======================================
-  traefik:
-    image: traefik:v3.0
+    image: traefik:latest
     container_name: traefik
-    command:
-      - --api.dashboard=true
-      - --api.insecure=false
     ports:
       - "80:80"
       - "443:443"
-      - "8082:8082"  # prometheus metrics
+#      - "8082:8082"  # prometheus metrics
     volumes:
+#      - ${XDG_RUNTIME_DIR}/docker.sock:/var/run/docker.sock:ro
       - /run/user/1000/docker.sock:/var/run/docker.sock:ro
+#      - ./traefik/acme.json:/acme.json
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/acme.json:/etc/traefik/acme.json
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
-      - ./traefik/traefik.yml:/traefik.yml:ro
-      - ./traefik/acme.json:/acme.json
-    networks:
-      - traefik
-    restart: unless-stopped
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     labels:
-#      - traefik.http.routers.http-catch.rule=HostRegexp(`{any:.+}`)
-#      - traefik.http.routers.http-catch.entrypoints=web
-#      - traefik.http.routers.http-catch.middlewares=redirect@file
-
-#      - traefik.http.routers.traefik.rule=Host(`kh.octopod.eu`)
-#      - traefik.http.routers.traefik.entrypoints=websecure
-#      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
-#      - traefik.http.routers.traefik.service=api@internal
-#      - traefik.http.routers.traefik.middlewares=authelia@file
-
-
       - traefik.enable=true
-      - traefik.http.routers.traefik.rule=Host(`traf.octopod.eu`)
-      - traefik.http.routers.traefik.entrypoints=websecure
-      - traefik.http.routers.traefik.tls.certresolver=letsencrypt
-      - traefik.http.routers.traefik.service=api@internal
-      - traefik.http.routers.traefik.middlewares=authentik@docker
-      - traefik.http.services.traefik.loadbalancer.server.port=8080
+      - traefik.http.routers.traefik-dashboard.rule=Host(`${TRAEFIK_DOMAIN}`)
+#      - traefik.http.routers.traefik-dashboard.rule=Host(`traf.octopod.eu`)
+      - traefik.http.routers.traefik-dashboard.entrypoints=websecure
+      - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik-dashboard.service=api@internal
+      - traefik.http.routers.traefik-dashboard.middlewares=authentik-forwardauth@file
+    restart: unless-stopped
+    networks:
+      - proxy_net
+
+
+
+#  init_prometheus:
+#    image: prom/prometheus:latest
+#    user: root
+#    entrypoint:
+#      - /bin/sh
+#      - -c
+#      - |
+#      - chown -R 65534:65534 /prometheus
+#    volumes:
+#      - ./prometheus-data/:/prometheus
 
 # =======================================
 # Pometheus
 # =======================================
   prometheus:
     image: prom/prometheus:latest
-    container_name: traef-prometheus
+    container_name: prometheus
+#    user: "1000:1000"
+    user: "root"
     volumes:
-      - ./prometheus/:/etc/prometheus/
-      - prometheus-data:/prometheus
+      - /run/user/1000/docker.sock:/var/run/docker.sock:ro
+      - ./prometheus-data:/prometheus:z
+#      - ./prometheus/:/etc/prometheus/
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:z
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
       - '--storage.tsdb.retention.size=256MB'
     ports:
       - 9090:9090
-    labels:
-      - "traefik.http.routers.prometheus.rule=Host(`prom.octopod.eu`)"
-      - "traefik.http.routers.prometheus.service=prometheus"
-      - "traefik.http.routers.prometheus.middlewares=traefik-auth"
-      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
-    networks:
-      - traefik
-      - internal
-    restart: unless-stopped
+#    labels:
+#      - "traefik.http.routers.prometheus.rule=Host(`prom.octopod.eu`)"
+#      - "traefik.http.routers.prometheus.service=prometheus"
+#      - "traefik.http.routers.prometheus.middlewares=traefik-auth"
+#      - "traefik.http.services.prometheus.loadbalancer.server.port=9090"
     logging:
       options:
         max-size: "10m"
         max-file: "3"
+#    depends_on:
+#      - init_prometheus 
+    restart: unless-stopped
+    networks:
+      - proxy_net
+
+
 # =======================================
 # Grafana
 # =======================================
   grafana:
-    image: grafana/grafana:latest
-    container_name: traef-grafana
+    image: grafana/grafana-oss:latest
+    container_name: grafana
     environment:
       - GF_PATHS_PLUGINS=${GF_PATHS_PLUGINS}
+      - GF_SERVER_HTTP_PORT=${GF_SERVER_HTTP_PORT}
     #   - GF_INSTALL_PLUGINS=${GF_INSTALL_PLUGINS}
-    ports:
-      - "3001:3001"
     volumes:
-    #   - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/plugins:/var/lib/grafana/plugins
       - grafana-data:/var/lib/grafana
-    networks:
-      - traefik
-      - internal
+
+#      - ./grafana-data:/var/lib/grafana:rw
+ #     - ./grafana/plugins:/var/lib/grafana/plugins
     labels:
-      - "traefik.http.routers.grafana.rule=Host(`graf.octopod.eu`)"
-      - "traefik.http.middlewares.grafana.redirectscheme.port=3001"
-      - "traefik.http.routers.grafana.entrypoints=web"
+      - traefik.enable=true
+      - traefik.http.routers.grafana.rule=Host(`${GRAFANA_DOMAIN}`)
+#      - traefik.http.routers.grafana.rule=Host(`graf.octopod.eu`)
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.tls.certresolver=letsencrypt
+      - traefik.http.services.grafana.loadbalancer.server.port=${GF_SERVER_HTTP_PORT}
+      - traefik.http.routers.grafana.middlewares=authentik-forwardauth@file
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+    networks:
+      - proxy_net
+
 
 
 # =======================================
@@ -111,14 +119,10 @@ services:
       - ./authelia/configuration.yml:/config/configuration.yml:ro
       - ./authelia/users_database.yml:/config/users_database.yml:ro
       - authelia-data:/config/data
-    networks:
-      - traefik
-      - internal
     environment:
       - AUTHELIA_JWT_SECRET=${AUTHELIA_JWT_SECRET}
       - AUTHELIA_SESSION_SECRET=${AUTHELIA_SESSION_SECRET}
       - AUTHELIA_STORAGE_ENCRYPTION_KEY=${AUTHELIA_STORAGE_KEY}
-    restart: unless-stopped
     depends_on:
       - redis
     labels:
@@ -130,18 +134,22 @@ services:
       - traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://authl.octopod.eu/
       - traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true
       - traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Name,Remote-Email
+    restart: unless-stopped
+    networks:
+      - proxy_net
 
 # =======================================
 # Redis
 # =======================================
   redis:
     image: redis:alpine
-    container_name: redis
-    networks:
-      - internal
-    volumes:
-      - redis-data:/data
+    container_name: authentik-redis
     restart: unless-stopped
+    networks:
+      - proxy_net
+    volumes:
+      - ./redis-data:/data
+
 
 # =======================================
 # Dashy
@@ -153,9 +161,6 @@ services:
       - ./dashy/conf.yml:/app/user-data/conf.yml
 #      - ./dashy:/app/public/item-icons:ro
 #      - ./dashy/conf.yml:/conf.yml:rw
-    networks:
-      - traefik
-    restart: unless-stopped
 #    environment:
       # Принуждаваме Dashy да използва нашия конфигурационен файл
 #      - DASHY_CONFIG_PATH=/app/public/conf.yml
@@ -166,6 +171,9 @@ services:
       - traefik.http.routers.dashy.tls.certresolver=letsencrypt
       - traefik.http.routers.dashy.middlewares=authelia@docker
       - traefik.http.services.dashy.loadbalancer.server.port=8080
+    restart: unless-stopped
+    networks:
+      - proxy_net
 
 
 # =======================================
@@ -183,28 +191,28 @@ services:
       - FENRUS_OIDC_CLIENT_SECRET=${FENRUS_OIDC_CLIENT_SECRET}
       - FENRUS_OIDC_SCOPE=openid profile email
       - FENRUS_OIDC_LOGOUT_URL=https://auth.octopod.eu/application/o/fenrus/logout/
-    networks:
-      - traefik
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
     labels:
       - traefik.enable=true
-      - traefik.http.routers.fenrus.rule=Host(`fenrus.octopod.eu`)
+      - traefik.http.routers.fenrus.rule=Host(`${FENRUS_DOMAIN}`)
+#      - traefik.http.routers.fenrus.rule=Host(`fenrus.octopod.eu`)
       - traefik.http.routers.fenrus.entrypoints=websecure
       - traefik.http.routers.fenrus.tls.certresolver=letsencrypt
-      - traefik.http.routers.fenrus.middlewares=authentik@docker
       - traefik.http.services.fenrus.loadbalancer.server.port=3000
       - traefik.http.routers.fenrus.middlewares=authentik-forwardauth@file
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    networks:
+      - proxy_net
 
 # =======================================
 # Authentik SSO
 # =======================================
   authentik-server:
-    image: ghcr.io/goauthentik/server:2024.6.1
+    image: ghcr.io/goauthentik/server:latest
     container_name: authentik-server
-#    command: ["manage.py", "server"]
     command: server
+#    user: "root"
     environment:
       AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
       AUTHENTIK_POSTGRESQL__HOST: authentik-db
@@ -233,44 +241,30 @@ services:
       # is the token key you can use to authenticate yourself to the API.
       # echo "FENRUS_OIDC_CLIENT_SECRET=$(openssl rand -base64 60 | tr -d '\n')" >> .env
 #      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_EMAIL__FROM}"
-      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_BOOTSTRAP_ADMIN_PASSWORD}"
-      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
-      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_BOOTSTRAP_EMAIL}"
-
+#      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_BOOTSTRAP_ADMIN_PASSWORD}"
+#      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
+#      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_BOOTSTRAP_EMAIL}"
+    volumes:
+      - ./authentik-data:/database:z
+      - ./authentik-media:/media:z
+      - ./authentik/certs:/certs
+      - ./authentik/custom-templates:/templates:z
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.authentik.rule=Host(`${AUTHENTIK_DOMAIN}`)
+#      - traefik.http.routers.authentik.rule=Host(`auth.octopod.eu`)
+      - traefik.http.routers.authentik.entrypoints=websecure
+      - traefik.http.routers.authentik.tls.certresolver=letsencrypt
+      - traefik.http.services.authentik.loadbalancer.server.port=9000
     depends_on:
       - authentik-db
       - redis
-    volumes:
-      - ./authentik-data:/data
-      - ./authentik/certs:/certs
-      - ./authentik/custom-templates:/templates
     ports:
       - "9100:9000"
-    networks:
-      - traefik
-      - internal
     restart: unless-stopped
-    labels:
-      - traefik.enable=true
-#      - traefik.port=9000
-      - traefik.http.routers.authentik.rule=Host(`auth.octopod.eu`)
-# && PathPrefix(`/outpost.goauthentik.io/`)
-      # `authentik-proxy` refers to the service name in the compose file.
-#      - traefik.http.middlewares.authentik.forwardauth.address=http://authentik-server:9100/outpost.goauthentik.io/auth/traefik
-#      traefik.http.middlewares.authentik.forwardauth.trustForwardHeader: true
-#      traefik.http.middlewares.authentik.forwardauth.authResponseHeaders: X-authentik-username,X-authentik-groups,X-authentik-entitlements,X-authentik-email,X-authentik-name,X-authentik-uid,X-authe>      - traefik.http.routers.authentik.rule=Host(`auth.octopod.eu`)
-      - traefik.http.routers.authentik.entrypoints=websecure
-      - traefik.http.routers.authentik.tls=true
-      - traefik.http.routers.authentik.tls.certresolver=letsencrypt
-      - traefik.http.services.authentik.loadbalancer.server.port=9000
-      - traefik.http.middlewares.authentik.forwardauth.address=http://authentik-server:9000/outpost.goauthentik.io/auth/traefik
-      - traefik.http.middlewares.authentik.forwardauth.trustForwardHeader=true
-      - traefik.http.middlewares.authentik.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email,X-authentik-name,X-authentik-uid
+    networks:
+      - proxy_net
 
-#   !!!!!!!!!!!! https://github.com/geekau/mediastack/blob/master/full-download-vpn/docker-compose.yaml
-#      - traefik.http.routers.authentik.middlewares=security-headers@file,traefik-bouncer@file
-      # Do not add authentik-forwardauth@file to middlewares, otherwise other applications can't authenticate
-#      - traefik.http.services.authentik.loadbalancer.server.scheme=http
 
 # =======================================
 # Authentik DB - Postgres
@@ -278,23 +272,28 @@ services:
   authentik-db:
     image: postgres:15
     container_name: authentik-db
+#    user: "1000:1000"
     environment:
       POSTGRES_USER: authentik
       POSTGRES_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
       POSTGRES_DB: authentik
     volumes:
       - ./authentik-db:/var/lib/postgresql/data
-    networks:
-      - internal
+#      - /var/run/1000/docker.sock:/var/run/docker.sock
+      - ./authentik-data:/database
+      - ./authentik-media:/media
     restart: unless-stopped
+    networks:
+      - proxy_net
 
 # =======================================
 # Authentik Worker
 # =======================================
   authentik-worker:
-    image: ghcr.io/goauthentik/server:2024.6.1
+    image: ghcr.io/goauthentik/server:latest
     container_name: authentik-worker
     command: worker
+#    user: "root"
     environment:
       AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
       AUTHENTIK_POSTGRESQL__HOST: authentik-db
@@ -314,24 +313,19 @@ services:
       AUTHENTIK_EMAIL__TIMEOUT: 10
       AUTHENTIK_REDIS__HOST: redis
       AUTHENTIK_REDIS__PORT: 6379
-
-#      AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_DB_PASSWORD}"
-      # Configure the default password for the akadmin user. Only read on the first startup. Can be used for any flow executor.
-#      AUTHENTIK_BOOTSTRAP_TOKEN: "${AUTHENTIK_BOOTSTRAP_TOKEN}"
-      # Create a token for the default akadmin user. Only read on the first startup. The string you specify for this variable 
-      # is the token key you can use to authenticate yourself to the API.
-      # echo "FENRUS_OIDC_CLIENT_SECRET=$(openssl rand -base64 60 | tr -d '\n')" >> .env
-#      AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_EMAIL__FROM}"
     volumes:
-      - ./authentik/media:/media
+      - /var/run/1000/docker.sock:/var/run/docker.sock
+      - ./authentik-data:/database:z
+      - ./authentik-media:/media:z
       - ./authentik/certs:/certs
-      - ./authentik/custom-templates:/templates
+      - ./authentik/custom-templates:/templates:z
+
     depends_on:
       - authentik-db
       - redis
+    restart: unless-stopped
     networks:
-      - traefik
-      - internal
+      - proxy_net
 
 
 # =======================================
@@ -364,13 +358,13 @@ services:
 # =======================================
 # Ping healthcheck service (optional, can be a simple busybox container that pings 10.10.30.1)
 # =======================================
-  pingcheck:
-    image: busybox
-    container_name: pingcheck
-    command: /bin/sh -c "while true; do ping -c1 10.10.30.1 >/dev/null 2>&1 && echo ok || echo nok; sleep 30; done"
-    networks:
-      - internal
-    restart: unless-stopped
+#  pingcheck:
+#    image: busybox
+#    container_name: pingcheck
+#    command: /bin/sh -c "while true; do ping -c1 10.10.30.1 >/dev/null 2>&1 && echo ok || echo nok; sleep 30; done"
+#    networks:
+#      - internal
+#    restart: unless-stopped
 
 # =======================================
 # Volumes
@@ -380,3 +374,11 @@ volumes:
   authelia-data:
   prometheus-data:
   grafana-data:
+
+
+# =======================================
+# Networks
+## =======================================
+networks:
+  proxy_net:
+    name: proxy_net

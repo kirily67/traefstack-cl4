@@ -1,7 +1,0 @@
-http:
-    middlewares:
-        my-traefik-themepark:
-            plugin:
-                traefik-themepark:
-                    app: sonarr
-                    theme: dark
